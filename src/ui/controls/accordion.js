@@ -42,9 +42,9 @@ Object.extend(Event, {
         header.insert({ top: icon });
       });
 
-      // If the user specified an active header, mark it as active.
-      // Otherwise, the first one is active by default.
-      this._markActive(opt.active || this.headers.first(), false);
+      if (opt.openFirst) {
+        this._markActive(opt.active || this.headers.first(), false);
+      }
     
       // ARIA.
       this.element.writeAttribute({
@@ -199,7 +199,7 @@ Object.extend(Event, {
     DEFAULT_OPTIONS: {
       multiple: false,  /* whether more than one pane can be open at once */    
       headerSelector: 'h3',
-    
+      openFirst: true, 
       icons: {
         header:         'ui-icon-triangle-1-e',
         headerSelected: 'ui-icon-triangle-1-s'
