@@ -44,21 +44,22 @@
       }
 
       this.enabled = true;
-      var enabled = (this._buttonElement.disabled === true) || 
-       !this._buttonElement.hasClassName('ui-state-disabled');
 
-      this.setEnabled(enabled);
+      var disabled = (this.element.disabled === true)
+       this.element.hasClassName('ui-state-disabled');
+
+      this.setEnabled(!disabled);
       
       this.observers = {
-        click:   this._click.bind(this),
-        keydown: this._keydown.bind(this)
+        click: this._click.bind(this),
+        keyup: this._keyup.bind(this)
       };
       this.addObservers();
     },
     
     addObservers: function() {
       this.observe('click', this.observers.click);
-      this.observe('keydown', this.observers.keydown);
+      this.observe('keyup', this.observers.keyup);
     },
     
     removeObservers: function() {
@@ -81,7 +82,7 @@
       var isActive = this.isActive();
       if (Object.isUndefined(bool)) bool = !isActive;
       
-      var willChange = (bool !== isActive);
+      var willChange = (bool !== isActive);      
       if (willChange) {
         var result = this.toElement().fire('ui:button:toggle');
         if (result.stopped) return;
@@ -90,16 +91,22 @@
     },
     
     _click: function(event) {
-      this.toggle();
+      this.toggle(!this.isActive());
+      this.element.checked = this.isActive();
     },
     
-    _keydown: function(event) {
+    _keyup: function(event) {
       var code = event.keyCode;
       if (code !== Event.KEY_SPACE && code !== Event.KEY_RETURN)
         return;
-        
-      this.toggle();
-      this.element.checked = this.isActive();
+      
+      var isActive = this.isActive();  
+      
+      (function() {
+        if (isActive !== this.isActive()) return;
+        this.toggle(isActive);
+        this.element.checked = isActive;
+      }).bind(this).defer();
     },
     
     _isCheckboxOrRadio: function() {
@@ -124,12 +131,76 @@
         element.addClassName('ui-priority-primary');
       }
  
-      if (opt.label === null) {
-        opt.label = element.innerHTML || element.value;
+      if (opt.text === null) {
+        opt.text = element.innerHTML || element.value;
       }
+      
+      this._interpretContent(element);
       
       // ARIA.
       element.writeAttribute('role', 'button');
+    },
+    
+    _makeIconElement: function(name, type) {
+      var classNames = 'ui-button-icon-' + type + ' ui-icon ' + name;
+      return new Element('span', { 'class': classNames });
+    },
+    
+    _interpretContent: function(element) {
+      if (!this._isContainer()) return;
+
+      var opt = this.options;
+      var buttonClassName, primaryIcon, secondaryIcon;
+      var hasIcon     = !!opt.icons.primary || !!opt.icons.secondary;
+      var hasTwoIcons = !!opt.icons.primary && !!opt.icons.secondary;
+
+      if (opt.icons.primary) {
+        primaryIcon = this._makeIconElement(opt.icons.primary, 'primary');
+      }
+      
+      if (opt.icons.secondary) {
+        secondaryIcon = this._makeIconElement(opt.icons.secondary, 'secondary');
+      }
+      
+      if (hasIcon) {
+        if (this._hasText()) {
+          buttonClassName = hasTwoIcons ? 'ui-button-text-icons' :
+           'ui-button-text-icon';
+        } else {
+          buttonClassName = hasTwoIcons ? 'ui-button-icons-only' :
+           'ui-button-icon-only';
+        }
+      } else {
+        buttonClassName = 'ui-button-text-only';
+      }
+      
+      this._wrapContentsInTextSpan(element);
+      element.addClassName(buttonClassName);
+
+      if (primaryIcon) {
+        element.insert({ top: primaryIcon });
+      }
+      
+      if (secondaryIcon) {
+        element.insert({ bottom: secondaryIcon });
+      }      
+    },
+    
+    _wrapContentsInTextSpan: function(element) {
+      var text = new Element('span', { 'class': 'ui-button-text' });      
+      for (var i = 0, node; node = element.childNodes[i]; i++) {
+        text.appendChild(node);
+      }
+      element.appendChild(text);      
+    },
+    
+    _hasText: function() {
+      return !!this.options.text;
+    },
+    
+    _isContainer: function() {
+      var element = this.toElement(), tag = element.nodeName.toUpperCase();
+      return (tag !== 'INPUT');
     },
     
     _handleFormWidget: function() {
@@ -145,9 +216,10 @@
       }
       
       if (!label) {
-        opt.label = null;
+        opt.text = null;
         return;
       }
+      
       
       this.element.addClassName('ui-helper-hidden-accessible');      
       this._makeButtonElement(label);
@@ -190,8 +262,12 @@
   Object.extend(UI.Button, {
     DEFAULT_OPTIONS: {
       primary: false,
-      label:   null,
-      toggle:  false
+      text:    true,
+      toggle:  false,
+      icons: {
+        primary: null,
+        secondary: null
+      }
     }
   });
   
